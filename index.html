@@ -2105,6 +2105,7 @@ let savedRange = null;
 
 document.addEventListener('mouseup', e => {
   if (!isAdmin) return;
+  if (e.target.closest('#inline-toolbar')) return;
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) { hideInlineToolbar(); return; }
   const range = sel.getRangeAt(0);
