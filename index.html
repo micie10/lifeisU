@@ -18,6 +18,7 @@
     --accent-color: #9840d0;
     --accent-soft: rgba(180,120,240,0.18);
     --accent-mid: rgba(180,120,240,0.35);
+    --box-shadow-color: rgba(0,0,0,0.06);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -251,7 +252,7 @@
     padding: 8px 10px 8px 10px;
     overflow: hidden;
     display: flex; flex-direction: column;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px var(--box-shadow-color);
   }
   .back-box .box-header {
     font-size: 11px; font-weight: bold; color: #9a7020;
@@ -498,6 +499,7 @@
   <label class="edit-only">필드배경<input type="color" id="field-bg-color" value="#c896ff" oninput="setFieldBgColor(this.value)"></label>
   <label class="edit-only">필드글자<input type="color" id="field-text-color" value="#4a1070" oninput="setFieldTextColor(this.value)"></label>
   <label class="edit-only">포인트색<input type="color" id="accent-color" value="#9840d0" oninput="setAccentColor(this.value)"></label>
+  <label class="edit-only">박스그림자<input type="color" id="box-shadow-color" value="#000000" oninput="setBoxShadowColor(this.value)"></label>
   <div class="tb-sep edit-only"></div>
 
   <!-- 폰트 -->
@@ -532,7 +534,7 @@
   <div class="tb-sep edit-only"></div>
 
   <!-- 배경 이미지 -->
-  <button class="edit-only" onclick="document.getElementById('bg-img-input').click()">🖼 배경이미지</button>
+  <button class="edit-only" onclick="openBgImgPicker()">🖼 배경이미지</button>
   <input type="file" id="bg-img-input" accept="image/*" style="display:none" onchange="setBgImage(event)">
   <button class="edit-only" onclick="clearBgImage()">✕ 배경제거</button>
   <div class="tb-sep edit-only"></div>
@@ -552,7 +554,7 @@
           <input id="front-title" class="field-input" value="✨ 나의 카드 ✨" readonly>
         </div>
         <div id="profile-wrap" class="shape-round">
-          <div id="profile-img-container" onclick="isAdmin&&document.getElementById('profile-input').click()">
+          <div id="profile-img-container" onclick="isAdmin&&openProfileImgPicker()">
             <span class="placeholder">🌙</span>
           </div>
           <input type="file" id="profile-input" accept="image/*" style="display:none" onchange="setProfileImg(event)">
@@ -572,9 +574,9 @@
           </div>
         </div>
         <div id="icons-wrap">
-          <div class="front-icon" id="icon1" onclick="isAdmin&&document.getElementById('icon1-input').click()" title="아이콘1">🌙</div>
+          <div class="front-icon" id="icon1" onclick="isAdmin&&openIconImgPicker('icon1')" title="아이콘1">🌙</div>
           <input type="file" id="icon1-input" accept="image/*" style="display:none" onchange="setIconImg(event,'icon1')">
-          <div class="front-icon" id="icon2" onclick="isAdmin&&document.getElementById('icon2-input').click()" title="아이콘2">⭐</div>
+          <div class="front-icon" id="icon2" onclick="isAdmin&&openIconImgPicker('icon2')" title="아이콘2">⭐</div>
           <input type="file" id="icon2-input" accept="image/*" style="display:none" onchange="setIconImg(event,'icon2')">
         </div>
       </div>
@@ -689,7 +691,12 @@
       <span style="font-size:24px;cursor:pointer" onclick="addStickerEmoji('🔮')">🔮</span>
       <span style="font-size:24px;cursor:pointer" onclick="addStickerEmoji('🌈')">🌈</span>
     </div>
-    <label>이미지 업로드</label>
+    <label>이미지 URL로 추가 (Imgur 등)</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="text" id="sticker-img-url-input" placeholder="https://i.imgur.com/xxxx.png" style="flex:1">
+      <button class="btn-cancel" onclick="addStickerImageFromUrl()">추가</button>
+    </div>
+    <label>또는 파일 업로드</label>
     <input type="file" id="sticker-img-input" accept="image/*" onchange="addStickerImage(event)">
     <label style="margin-top:12px">클릭 시 이동할 링크 (선택)</label>
     <input type="text" id="sticker-link-input" placeholder="https://...">
@@ -904,55 +911,55 @@ async function compressImage(file, maxSizeKB = 300, maxW = 600) {
 }
 
 // ══════════════════════════════════════════════
-//  Imgur 이미지 업로드
-//  (익명 업로드용 공개 Client-ID. 본인 계정으로 발급받은
-//   Client-ID로 교체하고 싶다면 아래 값만 바꾸면 됩니다)
+//  이미지 삽입 (Imgur 링크 우선, 없으면 파일 업로드)
+//  - fileInputId를 클릭하기 전에 먼저 Imgur 등 이미지 URL을
+//    붙여넣을 수 있는 창을 띄운다. URL을 입력하면 그 링크를 바로
+//    사용하고, 비워두고 확인하면 기존처럼 파일 업로드 창이 열린다.
 // ══════════════════════════════════════════════
-const IMGUR_CLIENT_ID = '546c25a59c58ad7';
-
-async function uploadToImgur(dataUrl) {
-  try {
-    showSync('이미지 업로드 중...', 'loading');
-    const base64 = dataUrl.split(',')[1];
-    const res = await fetch('https://api.imgur.com/3/image', {
-      method: 'POST',
-      headers: { 'Authorization': 'Client-ID ' + IMGUR_CLIENT_ID },
-      body: JSON.stringify({ image: base64, type: 'base64' })
-    });
-    const json = await res.json();
-    if (json && json.success && json.data && json.data.link) {
-      showSync('이미지 업로드 완료', 'ok');
-      return json.data.link;
-    }
-    throw new Error('Imgur upload failed');
-  } catch (err) {
-    console.warn('Imgur 업로드 실패, 이미지를 로컬로 저장합니다.', err);
-    showSync('업로드 실패 · 로컬 저장', 'ok');
-    return dataUrl; // 업로드 실패 시 base64로 폴백 (오프라인 등)
+function insertImageVia(fileInputId, applyUrlFn, promptLabel) {
+  if (!isAdmin) return;
+  const url = window.prompt(
+    (promptLabel || '이미지 URL을 입력하세요') +
+    '\n\nImgur(https://imgur.com)에 이미지를 올린 뒤 이미지 주소(링크)를 붙여넣으세요.\n비워두고 확인을 누르면 파일 업로드 창이 열립니다.',
+    ''
+  );
+  if (url === null) return; // 취소
+  const trimmed = url.trim();
+  if (trimmed) {
+    applyUrlFn(trimmed);
+    markDirty();
+  } else {
+    document.getElementById(fileInputId).click();
   }
 }
 
-// 파일 → (압축 후) Imgur 업로드까지 한번에 처리하는 헬퍼
-async function fileToHostedUrl(file, maxSizeKB, maxW) {
-  const compressed = await compressImage(file, maxSizeKB, maxW);
-  return await uploadToImgur(compressed);
+function applyProfileImg(url) {
+  document.getElementById('profile-img-container').innerHTML = `<img src="${url}" alt="프로필">`;
 }
-
+function openProfileImgPicker() {
+  insertImageVia('profile-input', applyProfileImg, '프로필 이미지 URL을 입력하세요');
+}
 async function setProfileImg(event) {
   if (!isAdmin) return;
   const file = event.target.files[0]; if (!file) return;
-  const url = await fileToHostedUrl(file, 300, 600);
-  const container = document.getElementById('profile-img-container');
-  container.innerHTML = `<img src="${url}" alt="프로필">`;
+  const data = await compressImage(file);
+  applyProfileImg(data);
+  event.target.value = '';
   markDirty();
 }
 
+function applyIconImg(iconId, url) {
+  document.getElementById(iconId).innerHTML = `<img src="${url}" alt="아이콘">`;
+}
+function openIconImgPicker(iconId) {
+  insertImageVia(iconId + '-input', u => applyIconImg(iconId, u), '아이콘 이미지 URL을 입력하세요');
+}
 async function setIconImg(event, iconId) {
   if (!isAdmin) return;
   const file = event.target.files[0]; if (!file) return;
-  const url = await fileToHostedUrl(file, 100, 200);
-  const el = document.getElementById(iconId);
-  el.innerHTML = `<img src="${url}" alt="아이콘">`;
+  const data = await compressImage(file, 100, 200);
+  applyIconImg(iconId, data);
+  event.target.value = '';
   markDirty();
 }
 
@@ -989,16 +996,28 @@ function setAccentColor(v) {
   document.documentElement.style.setProperty('--accent-mid', hexToRgba(v, 0.35));
   markDirty();
 }
+function setBoxShadowColor(v) {
+  document.documentElement.style.setProperty('--box-shadow-color', hexToRgba(v, 0.35));
+  markDirty();
+}
 function hexToRgba(hex, a) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
-async function setBgImage(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const url = await fileToHostedUrl(file, 500, 1200);
+function applyBgImg(url) {
   document.body.style.backgroundImage = `url(${url})`;
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
+}
+function openBgImgPicker() {
+  if (!isAdmin) return;
+  insertImageVia('bg-img-input', applyBgImg, '배경 이미지 URL을 입력하세요');
+}
+async function setBgImage(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const data = await compressImage(file, 500, 1200);
+  applyBgImg(data);
+  event.target.value = '';
   markDirty();
 }
 function clearBgImage() {
@@ -1249,13 +1268,27 @@ function addStickerEmoji(emoji) {
   markDirty();
 }
 
-async function addStickerImage(event) {
+function addStickerImageFromUrl() {
   if (!isAdmin) return;
-  const file = event.target.files[0]; if (!file) return;
-  const url = await fileToHostedUrl(file, 100, 200);
+  const url = document.getElementById('sticker-img-url-input').value.trim();
+  if (!url) return;
   const link = document.getElementById('sticker-link-input').value.trim();
   const id = 's' + Date.now();
   pages[currentPage].stickers.push({ id, type: 'image', content: url, x: 80, y: 100, w: 60, h: 60, rot: 0, link });
+  document.getElementById('sticker-img-url-input').value = '';
+  renderPages();
+  closeModal('sticker-modal');
+  markDirty();
+}
+
+async function addStickerImage(event) {
+  if (!isAdmin) return;
+  const file = event.target.files[0]; if (!file) return;
+  const data = await compressImage(file, 100, 200);
+  const link = document.getElementById('sticker-link-input').value.trim();
+  const id = 's' + Date.now();
+  pages[currentPage].stickers.push({ id, type: 'image', content: data, x: 80, y: 100, w: 60, h: 60, rot: 0, link });
+  event.target.value = '';
   renderPages();
   closeModal('sticker-modal');
   markDirty();
@@ -1546,10 +1579,12 @@ function ctxAction(action) {
       const fp = document.getElementById('ctx-img-picker');
       fp.onchange = async e => {
         const file = e.target.files[0]; if (!file) return;
-        box.img = await fileToHostedUrl(file, 200, 400);
+        box.img = await compressImage(file, 200, 400);
         renderPages(); markDirty(); fp.value = '';
       };
-      fp.click();
+      insertImageVia('ctx-img-picker', u => {
+        box.img = u; renderPages(); markDirty();
+      }, '박스 이미지 URL을 입력하세요');
     }
   }
   if (type === 'freeText') {
@@ -1657,6 +1692,7 @@ function collectState() {
       fieldBgColor: document.getElementById('field-bg-color').value,
       fieldTextColor: document.getElementById('field-text-color').value,
       accentColor: document.getElementById('accent-color').value,
+      boxShadowColor: document.getElementById('box-shadow-color').value,
       font: document.getElementById('font-sel').value,
       bgImage: document.body.style.backgroundImage || '',
     },
@@ -1705,6 +1741,7 @@ function applyState(state) {
     if (d.fieldBgColor) { document.getElementById('field-bg-color').value = d.fieldBgColor; setFieldBgColor(d.fieldBgColor); }
     if (d.fieldTextColor) { document.getElementById('field-text-color').value = d.fieldTextColor; setFieldTextColor(d.fieldTextColor); }
     if (d.accentColor) { document.getElementById('accent-color').value = d.accentColor; setAccentColor(d.accentColor); }
+    if (d.boxShadowColor) { document.getElementById('box-shadow-color').value = d.boxShadowColor; setBoxShadowColor(d.boxShadowColor); }
     if (d.font) { document.getElementById('font-sel').value = d.font; setFont(d.font); }
     if (d.bgImage) { document.body.style.backgroundImage = d.bgImage; document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }
   }
