@@ -70,6 +70,8 @@
   .tb-sep { width: 1px; height: 24px; background: #c9a8e8; margin: 0 4px; }
   #admin-btn { background: #ffe8f5; border-color: #e8a0c8; color: #8a2060; }
   #admin-btn.logged { background: #d4f5e0; border-color: #60c890; color: #1a6040; }
+  #snap-toggle-btn.snap-on { background: #d4f5e0; border-color: #60c890; color: #1a6040; }
+  #snap-toggle-btn.snap-off { background: #f0f0f0; border-color: #ccc; color: #888; }
 
   /* ── 카드 씬 ── */
   #card-scene {
@@ -556,6 +558,22 @@
   }
   /* 스티커는 절대좌표 기반이라 재배치된 레이아웃과 어긋나므로 모바일에선 숨김 */
   body.mobile-view .page .sticker { display: none !important; }
+  /* 단, '이미지만 추가'로 넣은 이미지는 내용물로 취급해 다른 박스처럼 순서대로 쌓아 보여줌 */
+  body.mobile-view .page .sticker.sticker-plain-img {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100%;
+    margin: 0 0 12px;
+    transform: none !important;
+  }
+  body.mobile-view .page .sticker.sticker-plain-img img {
+    width: 100%; height: auto; display: block; border-radius: 10px;
+  }
+  body.mobile-view .page .sticker.sticker-plain-img .sticker-sel-ring,
+  body.mobile-view .page .sticker.sticker-plain-img .sticker-resize-handle,
+  body.mobile-view .page .sticker.sticker-plain-img .sticker-rotate-handle { display: none !important; }
   /* 편집용 리사이즈 핸들은 모바일에서 의미 없으므로 숨김 */
   body.mobile-view .resize-handle,
   body.mobile-view #card-resize-handle { display: none !important; }
@@ -608,7 +626,10 @@
   <button class="edit-only" onclick="addBoxPrompt('normal')">📦 박스 추가</button>
   <button class="edit-only" onclick="addBoxPrompt('code')">💻 코드블록</button>
   <button class="edit-only" onclick="openStickerModal()">🌟 스티커</button>
+  <button class="edit-only" onclick="openAddImage()">🖼 이미지</button>
+  <input type="file" id="plain-img-input" accept="image/*" style="display:none" onchange="handlePlainImageFile(event)">
   <button class="edit-only" onclick="addFreeText()">🔤 텍스트</button>
+  <button class="edit-only snap-on" id="snap-toggle-btn" onclick="toggleSnap()">🧲 스냅 켜짐</button>
   <div class="tb-sep edit-only"></div>
 
   <!-- 페이지 관리 -->
@@ -702,6 +723,9 @@
   <div class="ctx-item" onclick="ctxAction('color')">🎨 배경색 변경</div>
   <div class="ctx-item" onclick="ctxAction('textcolor')">✏️ 글자색 변경</div>
   <div class="ctx-item" onclick="ctxAction('img')">🖼 이미지 삽입</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxAction('moveUp')">⬆ 순서 위로 (모바일 배치)</div>
+  <div class="ctx-item" onclick="ctxAction('moveDown')">⬇ 순서 아래로 (모바일 배치)</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item danger" onclick="ctxAction('delete')">🗑 삭제</div>
 </div>
@@ -810,6 +834,27 @@ let pages = []; // [{ boxes:[], stickers:[], freeTexts:[], locked:false, passwor
 let frontCardSize = { w: 360, h: 520 };
 let backCardSize  = { w: 360, h: 520 };
 let selectedEl = null;   // 현재 선택된 박스/스티커
+
+// ══════════════════════════════════════════════
+//  정렬 스냅 (그리드에 맞춰 배치)
+//  배경의 격자 눈금(32px)에 맞춰 드래그/리사이즈 값을
+//  스냅시켜 완전 자유배치보다 정돈된 배치가 되도록 돕는다.
+// ══════════════════════════════════════════════
+let snapEnabled = true;
+const SNAP_SIZE = 16;
+function snap(v) {
+  if (!snapEnabled) return v;
+  return Math.round(v / SNAP_SIZE) * SNAP_SIZE;
+}
+function toggleSnap() {
+  snapEnabled = !snapEnabled;
+  const btn = document.getElementById('snap-toggle-btn');
+  if (btn) {
+    btn.textContent = snapEnabled ? '🧲 스냅 켜짐' : '🧲 스냅 꺼짐';
+    btn.classList.toggle('snap-on', snapEnabled);
+    btn.classList.toggle('snap-off', !snapEnabled);
+  }
+}
 let ctxTarget  = null;   // 우클릭 타겟
 
 // ──────── 초기화 ────────
@@ -820,9 +865,9 @@ function init() {
   // 기본 페이지 1개
   pages = [{
     boxes: [
-      { id: 'b1', type: 'normal', title: 'NOTICE', body: '공지사항을 입력하세요', x: 14, y: 38, w: 150, h: 80, bg: '#fff8e8', fg: '#4a3800', img: null },
-      { id: 'b2', type: 'normal', title: 'NG', body: '', x: 180, y: 38, w: 100, h: 70, bg: '#ffe8e8', fg: '#800000', img: null },
-      { id: 'b3', type: 'normal', title: 'MEMO', body: '', x: 14, y: 135, w: 310, h: 80, bg: '#e8f5e8', fg: '#1a4020', img: null },
+      { id: 'b1', type: 'normal', title: 'NOTICE', body: '공지사항을 입력하세요', x: 14, y: 38, w: 150, h: 80, bg: '#fff8e8', fg: '#4a3800', img: null, order: 1 },
+      { id: 'b2', type: 'normal', title: 'NG', body: '', x: 180, y: 38, w: 100, h: 70, bg: '#ffe8e8', fg: '#800000', img: null, order: 2 },
+      { id: 'b3', type: 'normal', title: 'MEMO', body: '', x: 14, y: 135, w: 310, h: 80, bg: '#e8f5e8', fg: '#1a4020', img: null, order: 3 },
     ],
     stickers: [], freeTexts: [],
     locked: false, password: '', unlockedByUser: false
@@ -1176,14 +1221,31 @@ function unlockPage(idx) {
   }
 }
 
+function ensureOrder(page) {
+  const items = [...page.boxes, ...page.stickers, ...page.freeTexts];
+  const needsFix = items.some(it => typeof it.order !== 'number');
+  if (!needsFix) return;
+  let counter = 1;
+  page.boxes.forEach(b => { if (typeof b.order !== 'number') b.order = counter++; });
+  page.stickers.forEach(s => { if (typeof s.order !== 'number') s.order = counter++; });
+  page.freeTexts.forEach(f => { if (typeof f.order !== 'number') f.order = counter++; });
+}
+
 function renderPageContent(contentEl, page, pageIdx) {
   contentEl.innerHTML = '';
-  // 박스들
-  page.boxes.forEach(b => renderBox(contentEl, b, pageIdx));
-  // 스티커들
-  page.stickers.forEach(s => renderSticker(contentEl, s, pageIdx));
-  // 자유 텍스트
-  page.freeTexts.forEach(f => renderFreeText(contentEl, f, pageIdx));
+  ensureOrder(page);
+  // 박스 / 스티커·이미지 / 자유 텍스트를 하나의 순서(order)로 합쳐서 렌더링
+  // → 모바일에서 쌓이는 순서를 관리자가 직접 지정(이동)할 수 있게 함
+  const combined = [
+    ...page.boxes.map(ref => ({ kind: 'box', ref })),
+    ...page.stickers.map(ref => ({ kind: 'sticker', ref })),
+    ...page.freeTexts.map(ref => ({ kind: 'freeText', ref })),
+  ].sort((a, b) => (a.ref.order || 0) - (b.ref.order || 0));
+  combined.forEach(item => {
+    if (item.kind === 'box') renderBox(contentEl, item.ref, pageIdx);
+    else if (item.kind === 'sticker') renderSticker(contentEl, item.ref, pageIdx);
+    else renderFreeText(contentEl, item.ref, pageIdx);
+  });
 }
 
 function renderPageTabs() {
@@ -1271,7 +1333,8 @@ function addBoxPrompt(type) {
     body: '', x: 20, y: 50, w: 160, h: 90,
     bg: type === 'code' ? '#1e1e2e' : '#fff8f8',
     fg: type === 'code' ? '#cdd6f4' : '#4a1070',
-    img: null
+    img: null,
+    order: Date.now()
   });
   renderPages();
   markDirty();
@@ -1365,7 +1428,7 @@ function addStickerEmoji(emoji) {
   if (!isAdmin) return;
   const link = document.getElementById('sticker-link-input').value.trim();
   const id = 's' + Date.now();
-  pages[currentPage].stickers.push({ id, type: 'emoji', content: emoji, x: 80, y: 100, w: 44, h: 44, rot: 0, link });
+  pages[currentPage].stickers.push({ id, type: 'emoji', content: emoji, x: 80, y: 100, w: 44, h: 44, rot: 0, link, order: Date.now() });
   renderPages();
   closeModal('sticker-modal');
   markDirty();
@@ -1377,7 +1440,7 @@ function addStickerImageFromUrl() {
   if (!url) return;
   const link = document.getElementById('sticker-link-input').value.trim();
   const id = 's' + Date.now();
-  pages[currentPage].stickers.push({ id, type: 'image', content: url, x: 80, y: 100, w: 60, h: 60, rot: 0, link });
+  pages[currentPage].stickers.push({ id, type: 'image', content: url, x: 80, y: 100, w: 60, h: 60, rot: 0, link, order: Date.now() });
   document.getElementById('sticker-img-url-input').value = '';
   renderPages();
   closeModal('sticker-modal');
@@ -1390,16 +1453,41 @@ async function addStickerImage(event) {
   const data = await compressImage(file, 100, 200);
   const link = document.getElementById('sticker-link-input').value.trim();
   const id = 's' + Date.now();
-  pages[currentPage].stickers.push({ id, type: 'image', content: data, x: 80, y: 100, w: 60, h: 60, rot: 0, link });
+  pages[currentPage].stickers.push({ id, type: 'image', content: data, x: 80, y: 100, w: 60, h: 60, rot: 0, link, order: Date.now() });
   event.target.value = '';
   renderPages();
   closeModal('sticker-modal');
   markDirty();
 }
 
+// ══════════════════════════════════════════════
+//  이미지만 추가 (스티커 모달과 별개의 단축 기능)
+//  - 이모지/링크 없이 이미지 하나만 바로 추가
+//  - 크기 변경(리사이즈 핸들) / 회전(회전 핸들) 그대로 지원
+//  - plain:true 로 표시해 장식용 스티커와 구분 (모바일에서도 숨기지 않음)
+// ══════════════════════════════════════════════
+function addPlainImage(url) {
+  if (!isAdmin || !url) return;
+  const id = 's' + Date.now();
+  pages[currentPage].stickers.push({ id, type: 'image', content: url, x: 40, y: 60, w: 140, h: 140, rot: 0, link: '', plain: true, order: Date.now() });
+  renderPages();
+  markDirty();
+}
+function openAddImage() {
+  if (!isAdmin) return;
+  insertImageVia('plain-img-input', addPlainImage, '추가할 이미지 URL을 입력하세요');
+}
+async function handlePlainImageFile(event) {
+  if (!isAdmin) return;
+  const file = event.target.files[0]; if (!file) return;
+  const data = await compressImage(file, 300, 500);
+  addPlainImage(data);
+  event.target.value = '';
+}
+
 function renderSticker(parentEl, s, pageIdx) {
   const el = document.createElement('div');
-  el.className = 'sticker';
+  el.className = 'sticker' + (s.plain ? ' sticker-plain-img' : '');
   el.dataset.stickerId = s.id;
   el.style.cssText = `left:${s.x}px;top:${s.y}px;width:${s.w}px;height:${s.h}px;transform:rotate(${s.rot||0}deg);`;
   if (s.type === 'emoji') el.textContent = s.content;
@@ -1450,8 +1538,8 @@ function makeStickerDraggable(el, s, pageIdx) {
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
     isDraggingSticker = true;
-    s.x = origX + e.clientX - startX;
-    s.y = origY + e.clientY - startY;
+    s.x = snap(origX + e.clientX - startX);
+    s.y = snap(origY + e.clientY - startY);
     el.style.left = s.x + 'px'; el.style.top = s.y + 'px';
   });
   el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
@@ -1488,6 +1576,7 @@ function makeStickerResizable(handle, el, s) {
     const localDy = dx * Math.sin(rad) + dy * Math.cos(rad);
     s.w = Math.max(16, ow + localDx);
     s.h = Math.max(16, oh + localDy);
+    if (!s.rot) { s.w = snap(s.w); s.h = snap(s.h); }
     el.style.width = s.w + 'px'; el.style.height = s.h + 'px';
   };
   const onUp = () => { if (resizing) { resizing = false; markDirty(); } };
@@ -1559,7 +1648,7 @@ document.addEventListener('pointerdown', e => {
 function addFreeText() {
   if (!isAdmin) return;
   const id = 'ft' + Date.now();
-  pages[currentPage].freeTexts.push({ id, text: '텍스트', x: 60, y: 180, fontSize: 15, color: '#4a1070' });
+  pages[currentPage].freeTexts.push({ id, text: '텍스트', x: 60, y: 180, fontSize: 15, color: '#4a1070', order: Date.now() });
   renderPages();
   markDirty();
 }
@@ -1582,7 +1671,7 @@ function renderFreeText(parentEl, f, pageIdx) {
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      f.x = ox + e.clientX - sx; f.y = oy + e.clientY - sy;
+      f.x = snap(ox + e.clientX - sx); f.y = snap(oy + e.clientY - sy);
       el.style.left = f.x + 'px'; el.style.top = f.y + 'px';
     });
     el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
@@ -1609,7 +1698,7 @@ function makeDraggable(el, handle, b, pageIdx) {
   });
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
-    b.x = ox + e.clientX - sx; b.y = oy + e.clientY - sy;
+    b.x = snap(ox + e.clientX - sx); b.y = snap(oy + e.clientY - sy);
     el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
   });
   el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
@@ -1624,8 +1713,8 @@ function makeResizable(el, handle, b, pageIdx) {
   });
   handle.addEventListener('pointermove', e => {
     if (!resizing) return;
-    b.w = Math.max(80, ow + e.clientX - sx);
-    b.h = Math.max(50, oh + e.clientY - sy);
+    b.w = snap(Math.max(80, ow + e.clientX - sx));
+    b.h = snap(Math.max(50, oh + e.clientY - sy));
     el.style.width = b.w + 'px'; el.style.height = b.h + 'px';
   });
   handle.addEventListener('pointerup', () => { resizing = false; markDirty(); });
@@ -1653,6 +1742,31 @@ document.addEventListener('click', e => {
   }
 });
 
+// 박스/스티커(이미지)/자유텍스트를 통틀어 하나의 순서 목록으로 만들고,
+// 해당 항목을 한 칸 앞/뒤로 이동(order 값 교환)한다.
+// 이 순서가 모바일 화면에서 위→아래로 쌓이는 배치 순서가 된다.
+function moveOrder(pageIdx, type, id, dir) {
+  const page = pages[pageIdx];
+  if (!page) return;
+  ensureOrder(page);
+  const list = [...page.boxes, ...page.stickers, ...page.freeTexts]
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  let target;
+  if (type === 'box') target = page.boxes.find(o => o.id === id);
+  else if (type === 'sticker') target = page.stickers.find(o => o.id === id);
+  else if (type === 'freeText') target = page.freeTexts.find(o => o.id === id);
+  if (!target) return;
+  const idx = list.indexOf(target);
+  const swapIdx = idx + dir;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= list.length) return;
+  const other = list[swapIdx];
+  const tmp = target.order;
+  target.order = other.order;
+  other.order = tmp;
+  renderPages();
+  markDirty();
+}
+
 function ctxAction(action) {
   hideCtxMenu();
   if (!ctxTarget) return;
@@ -1663,6 +1777,11 @@ function ctxAction(action) {
     else if (type === 'sticker') pages[pageIdx].stickers = pages[pageIdx].stickers.filter(s => s.id !== id);
     else if (type === 'freeText') pages[pageIdx].freeTexts = pages[pageIdx].freeTexts.filter(f => f.id !== id);
     renderPages(); markDirty(); return;
+  }
+
+  if (action === 'moveUp' || action === 'moveDown') {
+    moveOrder(pageIdx, type, id, action === 'moveUp' ? -1 : 1);
+    return;
   }
 
   if (type === 'box') {
