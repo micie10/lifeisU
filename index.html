@@ -511,6 +511,9 @@
     transition: none !important;
   }
   /* 모바일에서는 3D 회전 대신 앞/뒷면을 표시/숨김으로 전환 (scale과 충돌 방지) */
+  /* card-face에 항상 걸려있는 rotateY(180deg)를 모바일에서는 상쇄해야
+     backface-visibility: hidden 때문에 뒷면이 안 보이는 문제가 생기지 않는다 */
+  body.mobile-view .card-face { transform: none !important; }
   body.mobile-view #card-front { display: block; }
   body.mobile-view #card-back  { display: none; }
   body.mobile-view #card-wrapper.flipped #card-front { display: none; }
