@@ -267,7 +267,7 @@
   .back-box .box-header .box-title-edit {
     font-family: var(--font-main); font-size: 11px; font-weight: bold;
     background: transparent; border: none; outline: none;
-    color: inherit; width: calc(100% - 40px);
+    color: inherit; flex: 1; min-width: 0;
     cursor: text;
   }
   .back-box .box-body {
@@ -447,15 +447,14 @@
   #sync-status.err { border-color: #e06060; color: #800; background: #fff0f0; }
   #sync-status.loading { border-color: #c890ff; color: #5a3080; }
 
-  /* 코드블록 복사 버튼 */
-  .copy-btn {
+  /* 박스 전체 복제 버튼 (헤더 안, ⋮ 옆) */
+  .box-dup-btn {
     font-family: var(--font-main); font-size: 11px;
-    padding: 2px 8px; border: 1px solid #c890ff; border-radius: 8px;
+    padding: 2px 10px; border: 1px solid #c890ff; border-radius: 20px;
     background: #f7eeff; color: #5a3080; cursor: pointer;
-    margin-bottom: 4px; align-self: flex-end;
+    flex-shrink: 0; line-height: 1.4;
   }
-  .copy-btn:hover { background: #e8d0ff; }
-  .copy-btn.copied { background: #d4f5e0; border-color: #60c890; color: #1a6040; }
+  .box-dup-btn:hover { background: #e8d0ff; }
 
   /* ── 뒷면 페이지 탭 ── */
   #page-tabs {
@@ -1474,17 +1473,15 @@ function renderBox(parentEl, b, pageIdx) {
 
   // 이미지
   const imgHtml = b.img ? `<img class="back-box-img" src="${b.img}" alt="">` : '';
-  // 코드블록 복사 버튼
-  const copyBtnHtml = b.type === 'code' ? `<button class="copy-btn" onclick="copyBoxCode(this)">복사</button>` : '';
 
   el.innerHTML = `
     <div class="box-header" style="color:${titleColor}">
       <input class="box-title-edit" value="${escHtml(b.title)}" ${isAdmin?'':'readonly'}>
-      <div style="display:flex;gap:2px">
+      <div style="display:flex;gap:4px;align-items:center;">
+        ${isAdmin ? `<button class="box-dup-btn editable-hide" title="박스 전체(내용/크기/색상) 복제" onclick="duplicateBox('${b.id}', ${pageIdx})">복사</button>` : ''}
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
-    ${copyBtnHtml}
     <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg}" contenteditable="${isAdmin}">${escHtml(b.body)}</div>
     ${imgHtml}
     ${isAdmin ? '<div class="resize-handle editable-hide"></div>' : ''}
@@ -1522,13 +1519,22 @@ function renderBox(parentEl, b, pageIdx) {
   parentEl.appendChild(el);
 }
 
-function copyBoxCode(btn) {
-  const body = btn.closest('.back-box').querySelector('.box-body');
-  navigator.clipboard.writeText(body.innerText).then(() => {
-    btn.textContent = '✓ 복사됨';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1500);
-  });
+function duplicateBox(boxId, pageIdx) {
+  if (!isAdmin) return;
+  const page = pages[pageIdx];
+  if (!page) return;
+  const src = page.boxes.find(b => b.id === boxId);
+  if (!src) return;
+  // 내용/크기/색상/이미지 등 모든 속성을 그대로 복제하고, 살짝 위치만 옮겨서 겹치지 않게 함
+  const clone = JSON.parse(JSON.stringify(src));
+  clone.id = 'b' + Date.now() + Math.floor(Math.random() * 1000);
+  clone.x = src.x + 16;
+  clone.y = src.y + 16;
+  clone.order = Date.now();
+  page.boxes.push(clone);
+  renderPages();
+  markDirty();
+  showSync('박스가 복제되었습니다', 'ok');
 }
 
 function openBoxCtxMenu(e, boxId, pageIdx) {
