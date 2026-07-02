@@ -346,6 +346,18 @@
   }
   .free-text:focus { cursor: text; }
 
+  /* ── 정렬 가이드라인 (드래그 중 다른 요소/카드 중앙과 맞춰지면 표시) ── */
+  .align-guide {
+    position: absolute;
+    background: #ff4fa3;
+    z-index: 500;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 0 4px rgba(255,79,163,0.6);
+  }
+  .align-guide-v { width: 1px; top: 0; bottom: 0; }
+  .align-guide-h { height: 1px; left: 0; right: 0; }
+
   /* ── 형광펜 ── */
   mark { background: yellow; color: inherit; border-radius: 2px; }
   mark.hl-pink { background: #ffb3d9; }
@@ -629,7 +641,7 @@
   <button class="edit-only" onclick="openAddImage()">🖼 이미지</button>
   <input type="file" id="plain-img-input" accept="image/*" style="display:none" onchange="handlePlainImageFile(event)">
   <button class="edit-only" onclick="addFreeText()">🔤 텍스트</button>
-  <button class="edit-only snap-on" id="snap-toggle-btn" onclick="toggleSnap()">🧲 스냅 켜짐</button>
+  <button class="edit-only snap-on" id="snap-toggle-btn" onclick="toggleSnap()" title="격자 스냅 + 정렬 가이드라인 켜기/끄기">🧲 스냅/가이드 켜짐</button>
   <div class="tb-sep edit-only"></div>
 
   <!-- 페이지 관리 -->
@@ -850,10 +862,83 @@ function toggleSnap() {
   snapEnabled = !snapEnabled;
   const btn = document.getElementById('snap-toggle-btn');
   if (btn) {
-    btn.textContent = snapEnabled ? '🧲 스냅 켜짐' : '🧲 스냅 꺼짐';
+    btn.textContent = snapEnabled ? '🧲 스냅/가이드 켜짐' : '🧲 스냅/가이드 꺼짐';
     btn.classList.toggle('snap-on', snapEnabled);
     btn.classList.toggle('snap-off', !snapEnabled);
   }
+}
+
+// ══════════════════════════════════════════════
+//  정렬 가이드라인 (Figma/Canva 식 스마트 가이드)
+//  드래그 중인 요소가 카드 중앙이나 다른 박스/스티커/텍스트의
+//  가장자리·중앙과 맞춰지면 분홍색 선을 보여주고 그 위치로 스냅
+// ══════════════════════════════════════════════
+const GUIDE_THRESHOLD = 6;
+
+function getAlignTargets(container, excludeEl) {
+  const targets = [];
+  container.querySelectorAll('.back-box, .sticker, .free-text').forEach(el => {
+    if (el === excludeEl) return;
+    if (el.style.display === 'none') return;
+    const left = el.offsetLeft, top = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight;
+    targets.push({ left, right: left + w, centerX: left + w / 2, top, bottom: top + h, centerY: top + h / 2 });
+  });
+  // 카드(페이지) 중앙 가이드
+  const cw = container.clientWidth, ch = container.clientHeight;
+  targets.push({ left: cw / 2, right: cw / 2, centerX: cw / 2, top: ch / 2, bottom: ch / 2, centerY: ch / 2 });
+  return targets;
+}
+
+function getGuideEls(container) {
+  return {
+    v: container.querySelector(':scope > .align-guide-v'),
+    h: container.querySelector(':scope > .align-guide-h'),
+  };
+}
+
+// x,y,w,h: 이동 중인 요소의 현재 위치/크기(px, container 기준)
+// 반환값: 가이드에 맞춰 보정된 {x, y}
+function applyAlignGuides(container, excludeEl, x, y, w, h) {
+  const { v: guideV, h: guideH } = getGuideEls(container);
+  if (!guideV || !guideH) return { x, y };
+  if (!snapEnabled) { guideV.style.display = 'none'; guideH.style.display = 'none'; return { x, y }; }
+  const targets = getAlignTargets(container, excludeEl);
+  const myX = [x, x + w / 2, x + w];
+  const myY = [y, y + h / 2, y + h];
+  let outX = null, lineX = null, outY = null, lineY = null;
+
+  for (const t of targets) {
+    if (outX === null) {
+      for (const mx of myX) {
+        for (const tx of [t.left, t.centerX, t.right]) {
+          if (Math.abs(mx - tx) <= GUIDE_THRESHOLD) { outX = x + (tx - mx); lineX = tx; break; }
+        }
+        if (outX !== null) break;
+      }
+    }
+    if (outY === null) {
+      for (const my of myY) {
+        for (const ty of [t.top, t.centerY, t.bottom]) {
+          if (Math.abs(my - ty) <= GUIDE_THRESHOLD) { outY = y + (ty - my); lineY = ty; break; }
+        }
+        if (outY !== null) break;
+      }
+    }
+    if (outX !== null && outY !== null) break;
+  }
+
+  if (lineX !== null) { guideV.style.left = lineX + 'px'; guideV.style.display = 'block'; }
+  else guideV.style.display = 'none';
+  if (lineY !== null) { guideH.style.top = lineY + 'px'; guideH.style.display = 'block'; }
+  else guideH.style.display = 'none';
+
+  return { x: outX !== null ? outX : snap(x), y: outY !== null ? outY : snap(y) };
+}
+
+function hideAlignGuides(container) {
+  const { v: guideV, h: guideH } = getGuideEls(container);
+  if (guideV) guideV.style.display = 'none';
+  if (guideH) guideH.style.display = 'none';
 }
 let ctxTarget  = null;   // 우클릭 타겟
 
@@ -1234,6 +1319,13 @@ function ensureOrder(page) {
 function renderPageContent(contentEl, page, pageIdx) {
   contentEl.innerHTML = '';
   ensureOrder(page);
+  // 정렬 가이드라인용 엘리먼트 (드래그 중에만 표시됨)
+  const guideV = document.createElement('div');
+  guideV.className = 'align-guide align-guide-v';
+  const guideH = document.createElement('div');
+  guideH.className = 'align-guide align-guide-h';
+  contentEl.appendChild(guideV);
+  contentEl.appendChild(guideH);
   // 박스 / 스티커·이미지 / 자유 텍스트를 하나의 순서(order)로 합쳐서 렌더링
   // → 모바일에서 쌓이는 순서를 관리자가 직접 지정(이동)할 수 있게 함
   const combined = [
@@ -1538,11 +1630,13 @@ function makeStickerDraggable(el, s, pageIdx) {
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
     isDraggingSticker = true;
-    s.x = snap(origX + e.clientX - startX);
-    s.y = snap(origY + e.clientY - startY);
+    const rawX = origX + e.clientX - startX, rawY = origY + e.clientY - startY;
+    const container = el.parentElement;
+    const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
+    s.x = pos.x; s.y = pos.y;
     el.style.left = s.x + 'px'; el.style.top = s.y + 'px';
   });
-  el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
+  el.addEventListener('pointerup', () => { dragging = false; if (el.parentElement) hideAlignGuides(el.parentElement); markDirty(); });
   // 휠 = 크기조절 (비율 유지 빠른 조절)
   el.addEventListener('wheel', e => {
     if (!isAdmin) return;
@@ -1671,10 +1765,13 @@ function renderFreeText(parentEl, f, pageIdx) {
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      f.x = snap(ox + e.clientX - sx); f.y = snap(oy + e.clientY - sy);
+      const rawX = ox + e.clientX - sx, rawY = oy + e.clientY - sy;
+      const container = el.parentElement;
+      const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
+      f.x = pos.x; f.y = pos.y;
       el.style.left = f.x + 'px'; el.style.top = f.y + 'px';
     });
-    el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
+    el.addEventListener('pointerup', () => { dragging = false; if (el.parentElement) hideAlignGuides(el.parentElement); markDirty(); });
     el.addEventListener('contextmenu', e => {
       e.preventDefault();
       ctxTarget = { type: 'freeText', id: f.id, pageIdx };
@@ -1698,10 +1795,13 @@ function makeDraggable(el, handle, b, pageIdx) {
   });
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
-    b.x = snap(ox + e.clientX - sx); b.y = snap(oy + e.clientY - sy);
+    const rawX = ox + e.clientX - sx, rawY = oy + e.clientY - sy;
+    const container = el.parentElement;
+    const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
+    b.x = pos.x; b.y = pos.y;
     el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
   });
-  el.addEventListener('pointerup', () => { dragging = false; markDirty(); });
+  el.addEventListener('pointerup', () => { dragging = false; if (el.parentElement) hideAlignGuides(el.parentElement); markDirty(); });
 }
 
 function makeResizable(el, handle, b, pageIdx) {
