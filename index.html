@@ -678,6 +678,8 @@
   <div class="ctx-item box-only" onclick="ctxAction('titlecolor')">🏷️ 제목 글자색 변경</div>
   <div class="ctx-item" onclick="ctxAction('textcolor')">✏️ 내용 글자색 변경</div>
   <div class="ctx-item box-only" onclick="ctxAction('img')">🖼 이미지 삽입</div>
+  <div class="ctx-sep box-only"></div>
+  <div class="ctx-item box-only" onclick="ctxAction('duplicate')">🧬 박스 복제 (내용/크기/색상 그대로)</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="ctxAction('moveUp')">⬆ 순서 위로 (모바일 배치)</div>
   <div class="ctx-item" onclick="ctxAction('moveDown')">⬇ 순서 아래로 (모바일 배치)</div>
@@ -1478,7 +1480,7 @@ function renderBox(parentEl, b, pageIdx) {
     <div class="box-header" style="color:${titleColor}">
       <input class="box-title-edit" value="${escHtml(b.title)}" ${isAdmin?'':'readonly'}>
       <div style="display:flex;gap:4px;align-items:center;">
-        ${isAdmin ? `<button class="box-dup-btn editable-hide" title="박스 전체(내용/크기/색상) 복제" onclick="duplicateBox('${b.id}', ${pageIdx})">복사</button>` : ''}
+        <button class="box-dup-btn editable-hide" title="내용을 그대로 복사" onclick="copyBoxText(this)">복사</button>
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
@@ -1517,6 +1519,36 @@ function renderBox(parentEl, b, pageIdx) {
   });
 
   parentEl.appendChild(el);
+}
+
+function copyBoxText(btn) {
+  const body = btn.closest('.back-box').querySelector('.box-body');
+  const text = body.innerText;
+  const showCopied = () => {
+    const original = btn.textContent;
+    btn.textContent = '✓ 복사됨';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopyText(text, showCopied));
+  } else {
+    fallbackCopyText(text, showCopied);
+  }
+}
+
+// 클립보드 API를 못 쓰는 환경(비보안 컨텍스트, 구형 브라우저 등)을 위한 대체 복사 방법
+function fallbackCopyText(text, onDone) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+  if (onDone) onDone();
 }
 
 function duplicateBox(boxId, pageIdx) {
@@ -1955,6 +1987,11 @@ function ctxAction(action) {
     else if (type === 'sticker') pages[pageIdx].stickers = pages[pageIdx].stickers.filter(s => s.id !== id);
     else if (type === 'freeText') pages[pageIdx].freeTexts = pages[pageIdx].freeTexts.filter(f => f.id !== id);
     renderPages(); markDirty(); return;
+  }
+
+  if (action === 'duplicate') {
+    if (type === 'box') duplicateBox(id, pageIdx);
+    return;
   }
 
   if (action === 'moveUp' || action === 'moveDown') {
