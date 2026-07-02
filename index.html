@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PROFILE</title>
+
+<!-- 파비콘: 🫧 이모지 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🫧</text></svg>">
+
+<!-- 공유 링크 미리보기 (X, 카카오톡 등) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="PROFILE">
+<meta property="og:description" content="나만의 프로필 카드">
+<meta property="og:image" content="https://micie10.github.io/LifeisU/share-image.jpg">
+<meta property="og:url" content="https://micie10.github.io/LifeisU/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PROFILE">
+<meta name="twitter:description" content="나만의 프로필 카드">
+<meta name="twitter:image" content="https://micie10.github.io/LifeisU/share-image.jpg">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Gamja+Flower&family=Poor+Story&family=Single+Day&family=Stylish&family=Black+Han+Sans&family=Jua&family=East+Sea+Dokdo&family=Hi+Melody&family=Dongle:wght@400;700&family=Cute+Font&family=Gowun+Dodum&display=swap" rel="stylesheet">
@@ -34,11 +49,12 @@
     box-sizing: border-box;
     padding-top: 70px; /* JS(applyCardSize)가 실제 툴바 높이로 바로 갱신함 */
   }
-  /* 모바일에서는 카드가 화면보다 커질 수 있어 페이지 자체 스크롤을 허용 */
+  /* 모바일에서도 데스크톱과 동일하게 뷰포트에 고정하고,
+     카드는 항상 화면 안에 스케일되어 정중앙에 오도록 한다.
+     (내용이 넘치면 페이지 전체가 아니라 카드 내부(.page / #front-inner)만 스크롤) */
   body.mobile-view {
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
+    height: 100vh;
+    overflow: hidden;
   }
   body::before {
     content: '';
@@ -516,9 +532,8 @@
      ══════════════════════════════════════════════ */
   body.mobile-view #card-scene {
     width: 100%;
-    padding: 0 12px 24px;
+    padding: 0 12px;
     box-sizing: border-box;
-    display: block;
   }
   /* 모바일 방문자 화면에서는 관리자 로그인 버튼을 숨김 (로그인 후에는 설정 접근을 위해 관리자 버튼은 다시 보임) */
   body.mobile-view.visitor #admin-btn,
@@ -528,9 +543,9 @@
   /* 카드 크기(폭/높이)는 데스크톱과 동일한 px 값을 그대로 쓰고,
      화면에 맞춰 전체를 scale()로만 축소한다 → 내부 배치는 100% 동일 */
   body.mobile-view #card-wrapper {
-    margin: 0 auto;
+    margin: 0;
     transform: scale(var(--mobile-scale, 1)) !important;
-    transform-origin: top center;
+    transform-origin: center center;
     transition: none !important;
   }
   /* 모바일에서는 3D 회전 대신 앞/뒷면을 표시/숨김으로 전환 (scale과 충돌 방지) */
@@ -987,32 +1002,39 @@ function applyMobileMode() {
   applyMobileScale();
 }
 function updateMobileScenePadding() {
-  const scene = document.getElementById('card-scene');
-  if (!scene) return;
-  if (!document.body.classList.contains('mobile-view')) { scene.style.paddingTop = ''; return; }
+  // 모바일에서도 데스크톱과 동일하게, 고정된 상단 툴바 높이만큼 body에
+  // paddingTop을 줘서 그 아래 남은 뷰포트 영역 안에서 카드가 스크롤 없이
+  // 항상 정중앙에 오도록 한다.
+  if (!document.body.classList.contains('mobile-view')) return;
   const topbar = document.getElementById('topbar');
   const h = topbar ? topbar.offsetHeight : 0;
-  scene.style.paddingTop = (h + 16) + 'px';
+  document.body.style.paddingTop = h + 'px';
 }
-// 카드(데스크톱과 동일한 고정 px 크기)를 모바일 화면 폭에 맞춰 축소 비율을 계산해
-// #card-wrapper에 --mobile-scale 변수로 적용하고, 축소된 만큼 씬의 예약 높이도 줄여
-// 카드 아래로 빈 여백이 남지 않도록 한다.
+// 카드(데스크톱과 동일한 고정 px 크기)를 모바일 화면(폭+높이)에 맞춰 축소 비율을
+// 계산해 #card-wrapper에 --mobile-scale 변수로 적용하고, 씬 높이도 축소된 실제
+// 크기로 맞춰 카드가 뷰포트를 벗어나 페이지 스크롤이 생기지 않도록 한다.
 function applyMobileScale() {
   const scene = document.getElementById('card-scene');
   const wrapper = document.getElementById('card-wrapper');
   if (!scene || !wrapper) return;
   if (!document.body.classList.contains('mobile-view')) {
     wrapper.style.removeProperty('--mobile-scale');
+    scene.style.height = '';
     return; // 데스크톱 높이(applyCardSize가 설정)는 그대로 둔다
   }
+  const topbar = document.getElementById('topbar');
+  const topbarH = topbar ? topbar.offsetHeight : 0;
   const cs = getComputedStyle(scene);
   const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
-  const usable = scene.clientWidth - padL - padR;
-  const cardW = isFlipped ? backCardSize.w : frontCardSize.w;
-  const scale = cardW > 0 ? Math.min(1, usable / cardW) : 1;
-  wrapper.style.setProperty('--mobile-scale', scale);
-  // offsetHeight는 transform의 영향을 받지 않는 실제(축소 전) 높이
+  const availW = Math.max(150, scene.clientWidth - padL - padR);
+  const availH = Math.max(150, window.innerHeight - topbarH - 32);
+  // offsetWidth/offsetHeight는 transform의 영향을 받지 않는 실제(축소 전) 크기
+  const naturalW = wrapper.offsetWidth;
   const naturalH = wrapper.offsetHeight;
+  const scale = (naturalW > 0 && naturalH > 0) ? Math.min(1, availW / naturalW, availH / naturalH) : 1;
+  wrapper.style.setProperty('--mobile-scale', scale);
+  // 씬 자체의 레이아웃 높이도 축소된 실제 높이로 맞춰야 body의 정중앙 정렬이
+  // 올바르게 동작한다 (transform은 레이아웃 크기에 영향을 주지 않기 때문).
   scene.style.height = Math.round(naturalH * scale) + 'px';
 }
 function initMobileMode() {
@@ -1143,13 +1165,13 @@ function applyCardSize() {
     scene.style.width  = Math.min(maxW, availW) + 'px';
     scene.style.height = Math.min(maxH, availH) + 'px';
   } else {
-    // 모바일에서는 body/scene 여백을 별도 로직(updateMobileScenePadding)이 담당하고,
-    // 카드 폭/높이는 원본 크기 그대로 두었다가 applyMobileScale이 화면 폭에 맞춰 축소한다.
-    document.body.style.paddingTop = '';
+    // 모바일에서는 body 상단 여백을 별도 로직(updateMobileScenePadding)이 담당하고,
+    // 카드 폭/높이는 원본 크기 그대로 두었다가 applyMobileScale이 화면 폭+높이에
+    // 맞춰 축소(scale)하며, 그때 씬의 실제 레이아웃 높이도 함께 맞춘다.
+    updateMobileScenePadding();
     w.style.width  = width + 'px';
     w.style.height = height + 'px';
     scene.style.width = '';
-    scene.style.height = '';
   }
   applyMobileScale();
 }
