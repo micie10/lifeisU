@@ -487,8 +487,8 @@
   /* ── 뒷면 페이지 탭 ── */
   #page-tabs {
     position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 4px; z-index: 60;
-    flex-wrap: wrap; justify-content: center;
+    display: grid; grid-template-columns: repeat(5, auto); gap: 4px; z-index: 60;
+    justify-content: center;
     max-width: 80%;
   }
   .page-tab {
