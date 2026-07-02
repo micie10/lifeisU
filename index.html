@@ -717,6 +717,7 @@
   <div class="ctx-item box-only" onclick="ctxAction('titlecolor')">🏷️ 제목 글자색 변경</div>
   <div class="ctx-item" onclick="ctxAction('textcolor')">✏️ 내용 글자색 변경</div>
   <div class="ctx-item box-only" onclick="ctxAction('img')">🖼 이미지 삽입</div>
+  <div class="ctx-item box-only" onclick="ctxAction('link')">🔗 링크 설정/변경</div>
   <div class="ctx-sep box-only"></div>
   <div class="ctx-item box-only" onclick="ctxAction('duplicate')">🧬 박스 복제 (내용/크기/색상 그대로)</div>
   <div class="ctx-sep"></div>
@@ -1513,6 +1514,8 @@ function addBoxPrompt(type) {
   if (!isAdmin) return;
   const title = prompt(type === 'code' ? '코드블록 제목:' : '박스 제목:', type === 'code' ? 'CODE' : 'BOX');
   if (title === null) return;
+  const link = prompt('클릭 시 이동할 링크 (선택 사항, 없으면 비워두고 확인)', '');
+  if (link === null) return;
   const id = 'b' + Date.now();
   const page = pages[currentPage];
   page.boxes.push({
@@ -1524,6 +1527,7 @@ function addBoxPrompt(type) {
     titleColor: type === 'code' ? '#cdd6f4' : '#9a7020',
     borderColor: type === 'code' ? '#3a3a52' : '#e0c880',
     img: null,
+    link: link.trim(),
     order: Date.now()
   });
   renderPages();
@@ -1538,6 +1542,7 @@ function renderBox(parentEl, b, pageIdx) {
   const borderColor = b.borderColor || '#e0c880';
   const titleColor  = b.titleColor  || '#9a7020';
   el.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;background:${b.bg};border-color:${borderColor};`;
+  if (b.link && !isAdmin) { el.style.cursor = 'pointer'; el.title = b.link; }
 
   // 이미지
   const imgHtml = b.img ? `<img class="back-box-img" src="${b.img}" alt="">` : '';
@@ -1550,7 +1555,7 @@ function renderBox(parentEl, b, pageIdx) {
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
-    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg}" contenteditable="${isAdmin}">${escHtml(b.body)}</div>
+    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg}" contenteditable="${isAdmin}">${b.body}</div>
     ${imgHtml}
     ${isAdmin ? '<div class="resize-handle editable-hide"></div>' : ''}
   `;
@@ -1561,7 +1566,7 @@ function renderBox(parentEl, b, pageIdx) {
   });
   // 본문 변경
   el.querySelector('.box-body').addEventListener('input', e => {
-    b.body = e.target.innerText; markDirty();
+    b.body = e.target.innerHTML; markDirty();
   });
 
   // 드래그 이동
@@ -1582,6 +1587,15 @@ function renderBox(parentEl, b, pageIdx) {
     e.preventDefault();
     ctxTarget = { type: 'box', id: b.id, pageIdx };
     showCtxMenu(e.clientX, e.clientY);
+  });
+
+  // 클릭 → 링크 (방문자 전용, 텍스트 선택 중이면 무시)
+  el.addEventListener('click', e => {
+    if (!b.link || isAdmin) return;
+    if (e.target.closest('.box-dup-btn')) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    window.open(b.link, '_blank');
   });
 
   parentEl.appendChild(el);
@@ -1890,10 +1904,10 @@ function renderFreeText(parentEl, f, pageIdx) {
   const el = document.createElement('div');
   el.className = 'free-text';
   el.contentEditable = isAdmin ? 'true' : 'false';
-  el.textContent = f.text;
+  el.innerHTML = f.text;
   el.style.cssText = `left:${f.x}px;top:${f.y}px;font-size:${f.fontSize}px;color:${f.color}`;
 
-  el.addEventListener('input', () => { f.text = el.innerText; markDirty(); });
+  el.addEventListener('input', () => { f.text = el.innerHTML; markDirty(); });
 
   if (isAdmin) {
     let dragging = false, sx, sy, ox, oy;
@@ -2098,6 +2112,11 @@ function ctxAction(action) {
       insertImageVia('ctx-img-picker', u => {
         box.img = u; renderPages(); markDirty();
       }, '박스 이미지 URL을 입력하세요');
+    } else if (action === 'link') {
+      const val = prompt('클릭 시 이동할 링크 (비워두고 확인하면 삭제됩니다)', box.link || '');
+      if (val === null) return;
+      box.link = val.trim();
+      renderPages(); markDirty();
     }
   }
   if (type === 'freeText') {
@@ -2154,6 +2173,25 @@ function hideInlineToolbar() {
   savedRange = null;
 }
 
+// 인라인 서식 변경 후 실제 데이터 모델(pages[...].boxes/freeTexts)에 반영
+// (surroundContents 등 DOM 직접 조작은 'input' 이벤트를 발생시키지 않으므로
+//  이 동기화가 없으면 화면엔 보이지만 저장 시 반영되지 않음)
+function syncEditableAfterFormat(node) {
+  if (!node) return;
+  let n = node.nodeType === 3 ? node.parentNode : node;
+  while (n) {
+    if (n.classList && n.classList.contains('box-body')) {
+      n.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+    if (n.classList && n.classList.contains('free-text')) {
+      n.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+    n = n.parentNode;
+  }
+}
+
 function applyHL(cls) {
   if (!savedRange) return;
   const sel = window.getSelection();
@@ -2161,11 +2199,15 @@ function applyHL(cls) {
   const mark = document.createElement('mark');
   if (cls !== 'yellow') mark.className = cls;
   try { savedRange.surroundContents(mark); } catch(e) { document.execCommand('bold', false, null); }
+  syncEditableAfterFormat(savedRange.commonAncestorContainer);
   markDirty();
 }
 function removeHL() {
   if (!savedRange) return;
-  document.execCommand('removeFormat'); markDirty();
+  const node = savedRange.commonAncestorContainer;
+  document.execCommand('removeFormat');
+  syncEditableAfterFormat(node);
+  markDirty();
 }
 function applyFontSize() {
   const sz = document.getElementById('font-size-input').value;
@@ -2175,6 +2217,7 @@ function applyFontSize() {
   const sel = window.getSelection();
   sel.removeAllRanges(); sel.addRange(savedRange);
   try { savedRange.surroundContents(span); } catch(e) {}
+  syncEditableAfterFormat(span);
   markDirty();
 }
 function applyFontFamily() {
@@ -2186,6 +2229,7 @@ function applyFontFamily() {
   const sel = window.getSelection();
   sel.removeAllRanges(); sel.addRange(savedRange);
   try { savedRange.surroundContents(span); } catch(e) {}
+  syncEditableAfterFormat(span);
   markDirty();
   fontSel.value = '';
 }
