@@ -1802,23 +1802,45 @@ function currentScaleFactor() {
 }
 
 function makeDraggable(el, handle, b, pageIdx) {
-  let dragging = false, sx, sy, ox, oy;
-  handle.addEventListener('pointerdown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-    dragging = true; sx = e.clientX; sy = e.clientY; ox = b.x; oy = b.y;
-    el.setPointerCapture(e.pointerId);
+  let pending = false, dragging = false, sx, sy, ox, oy, pid = null;
+  const DRAG_THRESHOLD = 4; // 이 정도 움직여야 '드래그'로 인정 (그 전엔 클릭/입력으로 취급)
+
+  function onMove(e) {
+    if (!pending) return;
+    if (!dragging) {
+      if (Math.abs(e.clientX - sx) < DRAG_THRESHOLD && Math.abs(e.clientY - sy) < DRAG_THRESHOLD) return;
+      // 임계값을 넘은 순간부터 실제 드래그 시작
+      dragging = true;
+      const active = document.activeElement;
+      if (active && active !== document.body && el.contains(active) && active.blur) active.blur();
+      try { el.setPointerCapture(pid); } catch (err) {}
+    }
     e.preventDefault();
-  });
-  el.addEventListener('pointermove', e => {
-    if (!dragging) return;
     const s = currentScaleFactor();
     const rawX = ox + (e.clientX - sx) / s, rawY = oy + (e.clientY - sy) / s;
     const container = el.parentElement;
     const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
     b.x = pos.x; b.y = pos.y;
     el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
+  }
+  function onUp() {
+    if (dragging) { markDirty(); if (el.parentElement) hideAlignGuides(el.parentElement); }
+    pending = false; dragging = false; pid = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+  }
+  handle.addEventListener('pointerdown', e => {
+    if (e.target.tagName === 'BUTTON') return; // ⋮ 옵션 버튼은 드래그 시작 안 함
+    pending = true; dragging = false;
+    sx = e.clientX; sy = e.clientY; ox = b.x; oy = b.y;
+    pid = e.pointerId;
+    // 여기서 preventDefault를 하지 않음 → 제목 입력창(INPUT)을 클릭했을 때
+    // 움직이지 않고 떼면 평소처럼 포커스가 잡혀서 편집할 수 있음
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   });
-  el.addEventListener('pointerup', () => { dragging = false; if (el.parentElement) hideAlignGuides(el.parentElement); markDirty(); });
 }
 
 function makeResizable(el, handle, b, pageIdx) {
