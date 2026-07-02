@@ -276,7 +276,10 @@
     font-family: var(--font-main);
     user-select: text;
     min-height: 30px;
+    scrollbar-width: none;      /* Firefox */
+    -ms-overflow-style: none;   /* IE/Edge */
   }
+  .back-box .box-body::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
   .back-box .box-body.code-body {
     font-family: 'Courier New', monospace; font-size: 12px;
     background: rgba(0,0,0,0.04); border-radius: 6px; padding: 4px;
