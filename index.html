@@ -18,7 +18,7 @@
     --accent-color: #9840d0;
     --accent-soft: rgba(180,120,240,0.18);
     --accent-mid: rgba(180,120,240,0.35);
-    --box-shadow-color: rgba(0,0,0,0.06);
+    --box-shadow-color: rgba(120,60,180,0.18);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -92,7 +92,7 @@
     -webkit-backface-visibility: hidden;
     background: var(--card-bg);
     border-radius: 22px;
-    box-shadow: 0 8px 40px rgba(120,60,180,0.18), 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 40px var(--box-shadow-color), 0 2px 8px rgba(0,0,0,0.08);
     overflow: hidden;
     width: 100%; height: 100%;
   }
@@ -252,7 +252,7 @@
     padding: 8px 10px 8px 10px;
     overflow: hidden;
     display: flex; flex-direction: column;
-    box-shadow: 0 2px 8px var(--box-shadow-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
   .back-box .box-header {
     font-size: 11px; font-weight: bold; color: #9a7020;
@@ -499,7 +499,7 @@
   <label class="edit-only">필드배경<input type="color" id="field-bg-color" value="#c896ff" oninput="setFieldBgColor(this.value)"></label>
   <label class="edit-only">필드글자<input type="color" id="field-text-color" value="#4a1070" oninput="setFieldTextColor(this.value)"></label>
   <label class="edit-only">포인트색<input type="color" id="accent-color" value="#9840d0" oninput="setAccentColor(this.value)"></label>
-  <label class="edit-only">박스그림자<input type="color" id="box-shadow-color" value="#000000" oninput="setBoxShadowColor(this.value)"></label>
+  <label class="edit-only">카드그림자<input type="color" id="box-shadow-color" value="#7830b4" oninput="setBoxShadowColor(this.value)"></label>
   <div class="tb-sep edit-only"></div>
 
   <!-- 폰트 -->
@@ -997,7 +997,7 @@ function setAccentColor(v) {
   markDirty();
 }
 function setBoxShadowColor(v) {
-  document.documentElement.style.setProperty('--box-shadow-color', hexToRgba(v, 0.35));
+  document.documentElement.style.setProperty('--box-shadow-color', hexToRgba(v, 0.28));
   markDirty();
 }
 function hexToRgba(hex, a) {
