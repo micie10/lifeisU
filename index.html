@@ -501,10 +501,15 @@
      ══════════════════════════════════════════════ */
   body.mobile-view #card-scene {
     width: 100%;
-    padding: 66px 12px 40px;
+    padding: 0 12px 40px;
     box-sizing: border-box;
     height: auto;
   }
+  /* 모바일 방문자 화면에서는 관리자 로그인 / 불러오기 버튼을 숨김 (로그인 후에는 설정 접근을 위해 관리자 버튼은 다시 보임) */
+  body.mobile-view.visitor #admin-btn,
+  body.mobile-view #reload-btn,
+  body.mobile-view.visitor #topbar .tb-sep:first-of-type { display: none !important; }
+  body.mobile-view.visitor #topbar { min-height: 0; padding: 0; border: none; background: transparent; backdrop-filter: none; }
   body.mobile-view #card-wrapper {
     width: min(94vw, 420px) !important;
     height: auto !important;
@@ -575,13 +580,21 @@
     display: block !important;
     position: static !important;
     width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
-    max-width: 100%;
-    margin: 0 0 12px;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 0 12px !important;
     transform: none !important;
   }
   body.mobile-view .page .sticker.sticker-plain-img img {
-    width: 100%; height: auto; display: block; border-radius: 10px;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    display: block !important;
+    border-radius: 10px;
   }
   body.mobile-view .page .sticker.sticker-plain-img .sticker-sel-ring,
   body.mobile-view .page .sticker.sticker-plain-img .sticker-resize-handle,
@@ -658,7 +671,7 @@
 
   <!-- 저장/동기화 -->
   <button class="edit-only" id="save-btn" onclick="saveData()">💾 저장</button>
-  <button onclick="loadFromGist()">🔄 불러오기</button>
+  <button id="reload-btn" onclick="loadFromGist()">🔄 불러오기</button>
 </div>
 
 <!-- ══ 카드 씬 ══ -->
@@ -973,11 +986,21 @@ function init() {
 const mobileMQ = window.matchMedia('(max-width: 640px)');
 function applyMobileMode() {
   document.body.classList.toggle('mobile-view', mobileMQ.matches);
+  updateMobileScenePadding();
+}
+function updateMobileScenePadding() {
+  const scene = document.getElementById('card-scene');
+  if (!scene) return;
+  if (!document.body.classList.contains('mobile-view')) { scene.style.paddingTop = ''; return; }
+  const topbar = document.getElementById('topbar');
+  const h = topbar ? topbar.offsetHeight : 0;
+  scene.style.paddingTop = (h + 16) + 'px';
 }
 function initMobileMode() {
   applyMobileMode();
   if (mobileMQ.addEventListener) mobileMQ.addEventListener('change', applyMobileMode);
   else mobileMQ.addListener(applyMobileMode); // 구형 브라우저 대응
+  window.addEventListener('resize', updateMobileScenePadding);
 }
 
 // ══════════════════════════════════════════════
@@ -1031,6 +1054,7 @@ function setAdminMode(on) {
   document.querySelectorAll('.box-body').forEach(el => { el.contentEditable = on ? 'true' : 'false'; });
   document.querySelectorAll('.free-text').forEach(el => { el.contentEditable = on ? 'true' : 'false'; });
   document.querySelectorAll('.box-title-edit').forEach(el => { el.readOnly = !on; });
+  setTimeout(updateMobileScenePadding, 0);
 }
 
 function adminLogout() {
