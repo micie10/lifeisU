@@ -15,6 +15,7 @@
     --title-color: #5a1080;
     --field-bg: rgba(200,150,255,0.1);
     --field-text: #4a1070;
+    --field-label-color: #9860c0;
     --accent-color: #9840d0;
     --accent-soft: rgba(180,120,240,0.18);
     --accent-mid: rgba(180,120,240,0.35);
@@ -160,7 +161,7 @@
     display: flex; align-items: center; gap: 6px;
     background: var(--field-bg); border-radius: 10px; padding: 4px 10px;
   }
-  .field-label { font-size: 12px; color: #9860c0; white-space: nowrap; }
+  .field-label { font-size: 12px; color: var(--field-label-color); white-space: nowrap; }
   .field-input {
     flex: 1; border: none; background: transparent;
     font-family: var(--font-main); font-size: 14px; color: var(--field-text);
@@ -480,7 +481,7 @@
   body.visitor .editable-hide { display: none !important; }
   body.visitor [contenteditable=true] { pointer-events: none; cursor: default; }
   body.visitor .field-input { pointer-events: none; }
-  body.visitor #topbar .edit-only { display: none !important; }
+  body.visitor .edit-only { display: none !important; }
 
   /* 이미지 보호 */
   img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
@@ -512,9 +513,8 @@
     box-sizing: border-box;
     display: block;
   }
-  /* 모바일 방문자 화면에서는 관리자 로그인 / 불러오기 버튼을 숨김 (로그인 후에는 설정 접근을 위해 관리자 버튼은 다시 보임) */
+  /* 모바일 방문자 화면에서는 관리자 로그인 버튼을 숨김 (로그인 후에는 설정 접근을 위해 관리자 버튼은 다시 보임) */
   body.mobile-view.visitor #admin-btn,
-  body.mobile-view #reload-btn,
   body.mobile-view.visitor #topbar .tb-sep:first-of-type { display: none !important; }
   body.mobile-view.visitor #topbar { min-height: 0; padding: 0; border: none; background: transparent; backdrop-filter: none; }
 
@@ -556,6 +556,7 @@
   <label class="edit-only">제목색<input type="color" id="title-color" value="#5a1080" oninput="setTitleColor(this.value)"></label>
   <label class="edit-only">필드배경<input type="color" id="field-bg-color" value="#c896ff" oninput="setFieldBgColor(this.value)"></label>
   <label class="edit-only">필드글자<input type="color" id="field-text-color" value="#4a1070" oninput="setFieldTextColor(this.value)"></label>
+  <label class="edit-only">라벨색<input type="color" id="field-label-color" value="#9860c0" oninput="setFieldLabelColor(this.value)"></label>
   <label class="edit-only">포인트색<input type="color" id="accent-color" value="#9840d0" oninput="setAccentColor(this.value)"></label>
   <label class="edit-only">카드그림자<input type="color" id="box-shadow-color" value="#7830b4" oninput="setBoxShadowColor(this.value)"></label>
   <div class="tb-sep edit-only"></div>
@@ -602,7 +603,6 @@
 
   <!-- 저장/동기화 -->
   <button class="edit-only" id="save-btn" onclick="saveData()">💾 저장</button>
-  <button id="reload-btn" onclick="loadFromGist()">🔄 불러오기</button>
 </div>
 
 <!-- ══ 카드 씬 ══ -->
@@ -1238,6 +1238,9 @@ function setFieldBgColor(v) {
 }
 function setFieldTextColor(v) {
   document.documentElement.style.setProperty('--field-text', v); markDirty();
+}
+function setFieldLabelColor(v) {
+  document.documentElement.style.setProperty('--field-label-color', v); markDirty();
 }
 function setAccentColor(v) {
   document.documentElement.style.setProperty('--accent-color', v);
@@ -2141,6 +2144,7 @@ function collectState() {
       titleColor: document.getElementById('title-color').value,
       fieldBgColor: document.getElementById('field-bg-color').value,
       fieldTextColor: document.getElementById('field-text-color').value,
+      fieldLabelColor: document.getElementById('field-label-color').value,
       accentColor: document.getElementById('accent-color').value,
       boxShadowColor: document.getElementById('box-shadow-color').value,
       font: document.getElementById('font-sel').value,
@@ -2191,6 +2195,7 @@ function applyState(state) {
     if (d.titleColor) { document.getElementById('title-color').value = d.titleColor; setTitleColor(d.titleColor); }
     if (d.fieldBgColor) { document.getElementById('field-bg-color').value = d.fieldBgColor; setFieldBgColor(d.fieldBgColor); }
     if (d.fieldTextColor) { document.getElementById('field-text-color').value = d.fieldTextColor; setFieldTextColor(d.fieldTextColor); }
+    if (d.fieldLabelColor) { document.getElementById('field-label-color').value = d.fieldLabelColor; setFieldLabelColor(d.fieldLabelColor); }
     if (d.accentColor) { document.getElementById('accent-color').value = d.accentColor; setAccentColor(d.accentColor); }
     if (d.boxShadowColor) { document.getElementById('box-shadow-color').value = d.boxShadowColor; setBoxShadowColor(d.boxShadowColor); }
     if (d.font) { document.getElementById('font-sel').value = d.font; setFont(d.font); }
@@ -2324,8 +2329,7 @@ setInterval(() => { if (dirty) { saveStateToStorage(); dirty = false; } }, 5000)
 //  이미지 보호 (우클릭/드래그 방지)
 // ══════════════════════════════════════════════
 document.addEventListener('contextmenu', e => {
-  if (!isAdmin && e.target.tagName === 'IMG') e.preventDefault();
-  if (!isAdmin && !e.target.closest('.back-box') && !e.target.closest('.sticker')) e.preventDefault();
+  if (!isAdmin) e.preventDefault();
 });
 document.addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
 document.addEventListener('selectstart', e => {
