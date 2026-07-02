@@ -1480,7 +1480,7 @@ function renderBox(parentEl, b, pageIdx) {
     <div class="box-header" style="color:${titleColor}">
       <input class="box-title-edit" value="${escHtml(b.title)}" ${isAdmin?'':'readonly'}>
       <div style="display:flex;gap:4px;align-items:center;">
-        <button class="box-dup-btn" title="내용을 그대로 복사" onclick="copyBoxText(this)">복사</button>
+        ${b.type === 'code' ? `<button class="box-dup-btn" title="코드를 그대로 복사" onclick="copyBoxText(this)">복사</button>` : ''}
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
