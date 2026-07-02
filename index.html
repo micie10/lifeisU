@@ -173,10 +173,9 @@
     background: var(--accent-soft);
     border: none; border-radius: 20px; padding: 5px 14px;
     font-family: var(--font-main); font-size: 13px; color: var(--accent-color);
-    cursor: pointer; z-index: 10;
+    cursor: pointer; z-index: 56;
     transition: background 0.15s;
   }
-  #flip-btn-back { left: 16px; right: auto; z-index: 56; }
   #flip-btn-front:hover, #flip-btn-back:hover { background: var(--accent-mid); }
 
   /* ── 뒷면 ── */
@@ -193,6 +192,9 @@
     position: relative;
     overflow-y: auto;
     overflow-x: hidden;
+    /* 위: 페이지 탭, 아래: 뒤집기 버튼과 겹치지 않도록 여백 확보 */
+    padding: 46px 0 58px 0;
+    box-sizing: border-box;
     /* 스크롤은 되지만 스크롤바는 안 보이게 */
     scrollbar-width: none;      /* Firefox */
     -ms-overflow-style: none;   /* IE/Edge */
@@ -453,11 +455,6 @@
   .page-tab.active { background: var(--accent-color); color: #fff; }
   .page-tab .tab-lock { font-size: 10px; }
 
-  /* ── 뒤집기 버튼 ── */
-  #flip-btn-back {
-    position: absolute; bottom: 12px; right: 16px; z-index: 70;
-  }
-
   /* 방문자 잠금 */
   body.visitor .editable-hide { display: none !important; }
   body.visitor [contenteditable=true] { pointer-events: none; cursor: default; }
@@ -536,6 +533,7 @@
   body.mobile-view .page {
     height: auto !important;
     overflow: visible !important;
+    padding: 0 !important;
   }
   body.mobile-view .page-content {
     position: relative !important;
@@ -1361,8 +1359,20 @@ function renderPageTabs() {
   pages.forEach((page, i) => {
     const tab = document.createElement('div');
     tab.className = 'page-tab' + (i === currentPage ? ' active' : '');
-    tab.innerHTML = `<span>${i+1}페이지</span>${page.locked ? '<span class="tab-lock">🔒</span>' : ''}`;
+    const label = page.name || `${i+1}페이지`;
+    tab.innerHTML = `<span>${escHtml(label)}</span>${page.locked ? '<span class="tab-lock">🔒</span>' : ''}`;
     tab.onclick = () => goToPage(i);
+    if (isAdmin) {
+      tab.title = '더블클릭하면 이름을 바꿀 수 있어요';
+      tab.ondblclick = e => {
+        e.stopPropagation();
+        const name = prompt('페이지 이름을 입력하세요:', label);
+        if (name === null) return;
+        page.name = name.trim() || null;
+        renderPageTabs();
+        markDirty();
+      };
+    }
     tabsEl.appendChild(tab);
   });
 }
@@ -1835,8 +1845,9 @@ function makeResizable(el, handle, b, pageIdx) {
   });
   handle.addEventListener('pointermove', e => {
     if (!resizing) return;
-    b.w = snap(Math.max(80, ow + e.clientX - sx));
-    b.h = snap(Math.max(50, oh + e.clientY - sy));
+    // 크기 조절은 격자 스냅 없이 항상 자유롭게(px 단위)
+    b.w = Math.max(80, ow + e.clientX - sx);
+    b.h = Math.max(50, oh + e.clientY - sy);
     el.style.width = b.w + 'px'; el.style.height = b.h + 'px';
   });
   handle.addEventListener('pointerup', () => { resizing = false; markDirty(); });
