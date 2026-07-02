@@ -486,118 +486,39 @@
   #ctx-menu .ctx-sep { height: 1px; background: #e8d0ff; margin: 3px 0; }
 
   /* ══════════════════════════════════════════════
-     모바일 반응형 – 카드 자체가 화면에 맞춰 줄어들고
-     뒷면 박스들은 절대좌표 대신 순서대로 세로로 쌓임
+     모바일 반응형 – 박스 위치를 재배치하지 않고,
+     데스크톱에서 편집한 레이아웃을 그대로 유지한 채
+     화면 폭에 맞춰 카드 전체를 축소해서 보여준다.
      ══════════════════════════════════════════════ */
   body.mobile-view #card-scene {
     width: 100%;
-    padding: 0 12px 40px;
+    padding: 0 12px 24px;
     box-sizing: border-box;
-    height: auto;
+    display: block;
   }
   /* 모바일 방문자 화면에서는 관리자 로그인 / 불러오기 버튼을 숨김 (로그인 후에는 설정 접근을 위해 관리자 버튼은 다시 보임) */
   body.mobile-view.visitor #admin-btn,
   body.mobile-view #reload-btn,
   body.mobile-view.visitor #topbar .tb-sep:first-of-type { display: none !important; }
   body.mobile-view.visitor #topbar { min-height: 0; padding: 0; border: none; background: transparent; backdrop-filter: none; }
+
+  /* 카드 크기(폭/높이)는 데스크톱과 동일한 px 값을 그대로 쓰고,
+     화면에 맞춰 전체를 scale()로만 축소한다 → 내부 배치는 100% 동일 */
   body.mobile-view #card-wrapper {
-    width: min(94vw, 420px) !important;
-    height: auto !important;
-    transform: none !important;
+    margin: 0 auto;
+    transform: scale(var(--mobile-scale, 1)) !important;
+    transform-origin: top center;
     transition: none !important;
   }
-  body.mobile-view .card-face {
-    position: relative !important;
-    width: 100% !important;
-    height: auto !important;
-    backface-visibility: visible !important;
-  }
+  /* 모바일에서는 3D 회전 대신 앞/뒷면을 표시/숨김으로 전환 (scale과 충돌 방지) */
   body.mobile-view #card-front { display: block; }
-  body.mobile-view #card-back  { display: none; transform: none !important; }
+  body.mobile-view #card-back  { display: none; }
   body.mobile-view #card-wrapper.flipped #card-front { display: none; }
   body.mobile-view #card-wrapper.flipped #card-back  { display: block; }
 
-  body.mobile-view #front-inner { padding: 22px 18px 10px; }
-  body.mobile-view #flip-btn-front,
-  body.mobile-view #flip-btn-back {
-    position: static !important;
-    display: block;
-    width: max-content;
-    margin: 18px auto 0;
-  }
-
-  body.mobile-view #back-inner {
-    position: relative !important;
-    height: auto !important;
-    padding: 12px 0 20px;
-  }
-  body.mobile-view #pages-container {
-    height: auto !important;
-    align-items: flex-start;
-  }
-  body.mobile-view .page {
-    height: auto !important;
-    overflow: visible !important;
-    padding: 0 !important;
-  }
-  body.mobile-view .page-content {
-    position: relative !important;
-    height: auto !important;
-    padding: 6px 14px;
-    box-sizing: border-box;
-  }
-  /* 박스: 절대좌표 → 순서대로 세로 스택 */
-  body.mobile-view .back-box {
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0;
-    margin: 0 0 12px;
-    box-sizing: border-box;
-  }
-  body.mobile-view .back-box .box-body { max-height: none; overflow: visible; }
-  body.mobile-view .back-box-img { max-height: 160px; }
-  /* 자유 텍스트도 순서대로 세로 스택 */
-  body.mobile-view .free-text {
-    position: static !important;
-    display: block;
-    width: 100% !important;
-    margin: 0 0 10px;
-  }
-  /* 스티커는 절대좌표 기반이라 재배치된 레이아웃과 어긋나므로 모바일에선 숨김 */
-  body.mobile-view .page .sticker { display: none !important; }
-  /* 단, '이미지만 추가'로 넣은 이미지는 내용물로 취급해 다른 박스처럼 순서대로 쌓아 보여줌 */
-  body.mobile-view .page .sticker.sticker-plain-img {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-    margin: 0 0 12px !important;
-    transform: none !important;
-  }
-  body.mobile-view .page .sticker.sticker-plain-img img {
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    object-fit: contain !important;
-    display: block !important;
-    border-radius: 10px;
-  }
-  body.mobile-view .page .sticker.sticker-plain-img .sticker-sel-ring,
-  body.mobile-view .page .sticker.sticker-plain-img .sticker-resize-handle,
-  body.mobile-view .page .sticker.sticker-plain-img .sticker-rotate-handle { display: none !important; }
-  /* 편집용 리사이즈 핸들은 모바일에서 의미 없으므로 숨김 */
+  /* 편집용 리사이즈 핸들은 모바일에서 다루기 어려우므로 숨김 */
   body.mobile-view .resize-handle,
   body.mobile-view #card-resize-handle { display: none !important; }
-  /* 좌우 화살표 대신 탭/인디케이터로 페이지 전환 */
-  body.mobile-view #page-prev,
-  body.mobile-view #page-next,
-  body.mobile-view #page-indicator { display: none !important; }
-  body.mobile-view #page-tabs { position: static; margin: 0 auto 14px; transform: none; left: auto; top: auto; }
 </style>
 </head>
 <body class="visitor">
@@ -981,6 +902,7 @@ const mobileMQ = window.matchMedia('(max-width: 640px)');
 function applyMobileMode() {
   document.body.classList.toggle('mobile-view', mobileMQ.matches);
   updateMobileScenePadding();
+  applyMobileScale();
 }
 function updateMobileScenePadding() {
   const scene = document.getElementById('card-scene');
@@ -990,11 +912,32 @@ function updateMobileScenePadding() {
   const h = topbar ? topbar.offsetHeight : 0;
   scene.style.paddingTop = (h + 16) + 'px';
 }
+// 카드(데스크톱과 동일한 고정 px 크기)를 모바일 화면 폭에 맞춰 축소 비율을 계산해
+// #card-wrapper에 --mobile-scale 변수로 적용하고, 축소된 만큼 씬의 예약 높이도 줄여
+// 카드 아래로 빈 여백이 남지 않도록 한다.
+function applyMobileScale() {
+  const scene = document.getElementById('card-scene');
+  const wrapper = document.getElementById('card-wrapper');
+  if (!scene || !wrapper) return;
+  if (!document.body.classList.contains('mobile-view')) {
+    wrapper.style.removeProperty('--mobile-scale');
+    return; // 데스크톱 높이(applyCardSize가 설정)는 그대로 둔다
+  }
+  const cs = getComputedStyle(scene);
+  const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+  const usable = scene.clientWidth - padL - padR;
+  const cardW = isFlipped ? backCardSize.w : frontCardSize.w;
+  const scale = cardW > 0 ? Math.min(1, usable / cardW) : 1;
+  wrapper.style.setProperty('--mobile-scale', scale);
+  // offsetHeight는 transform의 영향을 받지 않는 실제(축소 전) 높이
+  const naturalH = wrapper.offsetHeight;
+  scene.style.height = Math.round(naturalH * scale) + 'px';
+}
 function initMobileMode() {
   applyMobileMode();
   if (mobileMQ.addEventListener) mobileMQ.addEventListener('change', applyMobileMode);
   else mobileMQ.addListener(applyMobileMode); // 구형 브라우저 대응
-  window.addEventListener('resize', updateMobileScenePadding);
+  window.addEventListener('resize', () => { updateMobileScenePadding(); applyMobileScale(); });
 }
 
 // ══════════════════════════════════════════════
@@ -1097,10 +1040,19 @@ function applyCardSize() {
   w.style.height = height + 'px';
   // card-scene perspective 고정 (모든 페이지 높이 중 최대값 기준으로 씬 크기 확보)
   const scene = document.getElementById('card-scene');
-  const allBackH = pages.map(p => (typeof p.cardH === 'number') ? p.cardH : backCardSize.h);
-  const maxH = Math.max(frontCardSize.h, backCardSize.h, ...allBackH);
-  scene.style.width  = Math.max(frontCardSize.w, backCardSize.w) + 'px';
-  scene.style.height = maxH + 'px';
+  const isMobile = document.body.classList.contains('mobile-view');
+  if (!isMobile) {
+    const allBackH = pages.map(p => (typeof p.cardH === 'number') ? p.cardH : backCardSize.h);
+    const maxH = Math.max(frontCardSize.h, backCardSize.h, ...allBackH);
+    scene.style.width  = Math.max(frontCardSize.w, backCardSize.w) + 'px';
+    scene.style.height = maxH + 'px';
+  } else {
+    // 모바일에서는 scene 너비를 화면 폭(100%)에 맡기고,
+    // 높이는 applyMobileScale이 축소 비율에 맞춰 다시 계산한다.
+    scene.style.width = '';
+    scene.style.height = '';
+  }
+  applyMobileScale();
 }
 
 // ══════════════════════════════════════════════
@@ -1677,7 +1629,8 @@ function makeStickerDraggable(el, s, pageIdx) {
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
     isDraggingSticker = true;
-    const rawX = origX + e.clientX - startX, rawY = origY + e.clientY - startY;
+    const sc = currentScaleFactor();
+    const rawX = origX + (e.clientX - startX) / sc, rawY = origY + (e.clientY - startY) / sc;
     const container = el.parentElement;
     const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
     s.x = pos.x; s.y = pos.y;
@@ -1710,7 +1663,8 @@ function makeStickerResizable(handle, el, s) {
   const onMove = e => {
     if (!resizing) return;
     const p = e.touches ? e.touches[0] : e;
-    const dx = p.clientX - sx, dy = p.clientY - sy;
+    const sc = currentScaleFactor();
+    const dx = (p.clientX - sx) / sc, dy = (p.clientY - sy) / sc;
     // 회전 각도만큼 역회전시켜 로컬 좌표계 기준 델타로 변환
     const rad = -(s.rot || 0) * Math.PI / 180;
     const localDx = dx * Math.cos(rad) - dy * Math.sin(rad);
@@ -1812,7 +1766,8 @@ function renderFreeText(parentEl, f, pageIdx) {
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      const rawX = ox + e.clientX - sx, rawY = oy + e.clientY - sy;
+      const sc = currentScaleFactor();
+      const rawX = ox + (e.clientX - sx) / sc, rawY = oy + (e.clientY - sy) / sc;
       const container = el.parentElement;
       const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
       f.x = pos.x; f.y = pos.y;
@@ -1832,6 +1787,16 @@ function renderFreeText(parentEl, f, pageIdx) {
 // ══════════════════════════════════════════════
 //  드래그 / 리사이즈 (박스)
 // ══════════════════════════════════════════════
+// 모바일에서는 카드 전체가 scale()로 축소되어 있으므로,
+// 마우스/터치 이동량(px)을 실제 좌표 단위로 환산할 때 이 배율로 나눠줘야 한다.
+function currentScaleFactor() {
+  if (!document.body.classList.contains('mobile-view')) return 1;
+  const wrapper = document.getElementById('card-wrapper');
+  if (!wrapper) return 1;
+  const v = parseFloat(getComputedStyle(wrapper).getPropertyValue('--mobile-scale'));
+  return (v && v > 0) ? v : 1;
+}
+
 function makeDraggable(el, handle, b, pageIdx) {
   let dragging = false, sx, sy, ox, oy;
   handle.addEventListener('pointerdown', e => {
@@ -1842,7 +1807,8 @@ function makeDraggable(el, handle, b, pageIdx) {
   });
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const rawX = ox + e.clientX - sx, rawY = oy + e.clientY - sy;
+    const s = currentScaleFactor();
+    const rawX = ox + (e.clientX - sx) / s, rawY = oy + (e.clientY - sy) / s;
     const container = el.parentElement;
     const pos = container ? applyAlignGuides(container, el, rawX, rawY, el.offsetWidth, el.offsetHeight) : { x: snap(rawX), y: snap(rawY) };
     b.x = pos.x; b.y = pos.y;
