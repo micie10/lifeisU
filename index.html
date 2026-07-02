@@ -737,6 +737,11 @@
   <div class="ctx-sep box-only"></div>
   <div class="ctx-item box-only" onclick="ctxAction('duplicate')">🧬 박스 복제 (내용/크기/색상 그대로)</div>
   <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxAction('alignLeft')">⬅ 왼쪽 정렬</div>
+  <div class="ctx-item" onclick="ctxAction('alignCenter')">↔ 가운데 정렬</div>
+  <div class="ctx-item" onclick="ctxAction('alignRight')">➡ 오른쪽 정렬</div>
+  <div class="ctx-item" onclick="ctxAction('alignJustify')">☰ 양쪽 정렬</div>
+  <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="ctxAction('moveUp')">⬆ 순서 위로 (모바일 배치)</div>
   <div class="ctx-item" onclick="ctxAction('moveDown')">⬇ 순서 아래로 (모바일 배치)</div>
   <div class="ctx-sep"></div>
@@ -1603,7 +1608,7 @@ function renderBox(parentEl, b, pageIdx) {
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
-    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg}" contenteditable="${isAdmin}">${b.body}</div>
+    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg};text-align:${b.align||'left'}" contenteditable="${isAdmin}">${b.body}</div>
     ${imgHtml}
     ${isAdmin ? '<div class="resize-handle editable-hide"></div>' : ''}
   `;
@@ -1957,7 +1962,7 @@ function renderFreeText(parentEl, f, pageIdx) {
   // 카드 안쪽에 들어올 수 있는 최대 폭을 max-width로 제한해서 줄바꿈되게 한다.
   const pad = 10;
   const maxTextW = Math.max(60, backCardSize.w - f.x - pad);
-  el.style.cssText = `left:${f.x}px;top:${f.y}px;font-size:${f.fontSize}px;color:${f.color};max-width:${maxTextW}px;`;
+  el.style.cssText = `left:${f.x}px;top:${f.y}px;font-size:${f.fontSize}px;color:${f.color};max-width:${maxTextW}px;text-align:${f.align||'left'};`;
 
   el.addEventListener('input', () => { f.text = el.innerHTML; markDirty(); });
 
@@ -2128,6 +2133,17 @@ function ctxAction(action) {
 
   if (action === 'moveUp' || action === 'moveDown') {
     moveOrder(pageIdx, type, id, action === 'moveUp' ? -1 : 1);
+    return;
+  }
+
+  if (action === 'alignLeft' || action === 'alignCenter' || action === 'alignRight' || action === 'alignJustify') {
+    const alignVal = action === 'alignLeft' ? 'left' : action === 'alignCenter' ? 'center' : action === 'alignRight' ? 'right' : 'justify';
+    let obj;
+    if (type === 'box') obj = pages[pageIdx].boxes.find(b => b.id === id);
+    else if (type === 'freeText') obj = pages[pageIdx].freeTexts.find(f => f.id === id);
+    if (!obj) return;
+    obj.align = alignVal;
+    renderPages(); markDirty();
     return;
   }
 
