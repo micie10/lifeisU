@@ -627,6 +627,8 @@
   <button class="edit-only" onclick="addPage()">➕ 페이지</button>
   <button class="edit-only" onclick="deleteCurPage()">🗑 페이지삭제</button>
   <button class="edit-only" onclick="openPageLockModal()">🔒 페이지잠금</button>
+  <button class="edit-only" id="page-move-left-btn" onclick="movePage(-1)" title="현재 페이지를 앞으로 이동">◀ 순서이동</button>
+  <button class="edit-only" id="page-move-right-btn" onclick="movePage(1)" title="현재 페이지를 뒤로 이동">순서이동 ▶</button>
   <div class="tb-sep edit-only"></div>
 
   <!-- 배경 이미지 -->
@@ -734,6 +736,9 @@
   <div class="ctx-item" onclick="ctxAction('textcolor')">✏️ 내용 글자색 변경</div>
   <div class="ctx-item box-only" onclick="ctxAction('img')">🖼 이미지 삽입</div>
   <div class="ctx-item box-only" onclick="ctxAction('link')">🔗 링크 설정/변경</div>
+  <div class="ctx-sep box-only"></div>
+  <div class="ctx-item box-only" onclick="ctxAction('spacingUp')">↕️ 문단 간격 넓게</div>
+  <div class="ctx-item box-only" onclick="ctxAction('spacingDown')">↕️ 문단 간격 좁게</div>
   <div class="ctx-sep box-only"></div>
   <div class="ctx-item box-only" onclick="ctxAction('duplicate')">🧬 박스 복제 (내용/크기/색상 그대로)</div>
   <div class="ctx-sep"></div>
@@ -1490,6 +1495,10 @@ function renderPageTabs() {
 function updatePageNav() {
   document.getElementById('page-prev').disabled = currentPage === 0;
   document.getElementById('page-next').disabled = currentPage === pages.length - 1;
+  const moveLeftBtn = document.getElementById('page-move-left-btn');
+  const moveRightBtn = document.getElementById('page-move-right-btn');
+  if (moveLeftBtn) moveLeftBtn.disabled = currentPage === 0;
+  if (moveRightBtn) moveRightBtn.disabled = currentPage === pages.length - 1;
   // 인디케이터
   const ind = document.getElementById('page-indicator');
   ind.innerHTML = '';
@@ -1531,6 +1540,19 @@ function deleteCurPage() {
   currentPage = Math.min(currentPage, pages.length - 1);
   renderPages();
   markDirty();
+}
+
+function movePage(dir) {
+  if (!isAdmin) return;
+  const newIdx = currentPage + dir;
+  if (newIdx < 0 || newIdx >= pages.length) return;
+  const tmp = pages[currentPage];
+  pages[currentPage] = pages[newIdx];
+  pages[newIdx] = tmp;
+  currentPage = newIdx;
+  renderPages();
+  markDirty();
+  showSync(`페이지 순서를 ${dir < 0 ? '앞으로' : '뒤로'} 옮겼습니다`, 'ok');
 }
 
 function openPageLockModal() {
@@ -1608,7 +1630,7 @@ function renderBox(parentEl, b, pageIdx) {
         ${isAdmin ? `<button class="box-ctrl-btn editable-hide" title="우클릭으로 옵션" onclick="openBoxCtxMenu(event, '${b.id}', ${pageIdx})">⋮</button>` : ''}
       </div>
     </div>
-    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg};text-align:${b.align||'left'}" contenteditable="${isAdmin}">${b.body}</div>
+    <div class="box-body ${b.type==='code'?'code-body':''}" style="color:${b.fg};text-align:${b.align||'left'};line-height:${b.lineHeight||1.5}" contenteditable="${isAdmin}">${b.body}</div>
     ${imgHtml}
     ${isAdmin ? '<div class="resize-handle editable-hide"></div>' : ''}
   `;
@@ -2144,6 +2166,18 @@ function ctxAction(action) {
     if (!obj) return;
     obj.align = alignVal;
     renderPages(); markDirty();
+    return;
+  }
+
+  if (action === 'spacingUp' || action === 'spacingDown') {
+    if (type !== 'box') return;
+    const box = pages[pageIdx].boxes.find(b => b.id === id);
+    if (!box) return;
+    let lh = box.lineHeight || 1.5;
+    lh = action === 'spacingUp' ? Math.min(3, lh + 0.2) : Math.max(1, lh - 0.2);
+    box.lineHeight = Math.round(lh * 10) / 10;
+    renderPages(); markDirty();
+    showSync(`문단 간격: ${box.lineHeight}`, 'ok');
     return;
   }
 
